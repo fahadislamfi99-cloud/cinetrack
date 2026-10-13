@@ -1,6 +1,7 @@
 import { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { unstable_cache } from "next/cache";
 import { ArrowLeft, Star, Plus, Film, Tv, Check, Bookmark, ChevronRight } from "lucide-react";
 import { AppHeader } from "@/components/navigation/app-header";
 import { BottomNav } from "@/components/navigation/bottom-nav";
@@ -36,6 +37,58 @@ interface PageProps {
     ref?: string;
   }>;
 }
+
+/**
+ * Cache platform candidate pool for related recommendations at the edge for 5 minutes.
+ * Prevents bots and users from executing full-table scans on PostgreSQL on every details page visit.
+ */
+const getRelatedPlatformPool = unstable_cache(
+  async () => {
+    const [platformRows, platformLogs] = await Promise.all([
+      db
+        .select({
+          id: mediaItems.id,
+          source: mediaItems.source,
+          sourceId: mediaItems.sourceId,
+          mediaType: mediaItems.mediaType,
+          title: mediaItems.title,
+          originalTitle: mediaItems.originalTitle,
+          posterPath: mediaItems.posterPath,
+          backdropPath: mediaItems.backdropPath,
+          releaseDate: mediaItems.releaseDate,
+          rating: mediaItems.rating,
+          totalEpisodes: mediaItems.totalEpisodes,
+          runtime: mediaItems.runtime,
+          genres: mediaItems.genres,
+          synopsis: mediaItems.synopsis,
+          streamingProviders: mediaItems.streamingProviders,
+        })
+        .from(mediaItems)
+        .orderBy(desc(mediaItems.createdAt))
+        .limit(100)
+        .catch((err) => {
+          console.error("Related mediaItems query error:", err);
+          return [];
+        }),
+      db
+        .select({
+          mediaId: userMediaLogs.mediaId,
+          rating: userMediaLogs.rating,
+        })
+        .from(userMediaLogs)
+        .where(isNotNull(userMediaLogs.rating))
+        .orderBy(desc(userMediaLogs.updatedAt))
+        .limit(500)
+        .catch((err) => {
+          console.error("Related userMediaLogs query error:", err);
+          return [];
+        }),
+    ]);
+    return { platformRows, platformLogs };
+  },
+  ["platform-related-pool-v1"],
+  { revalidate: 300, tags: ["discover"] }
+);
 
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
   const { type, id } = await params;
@@ -561,26 +614,13 @@ export default async function MediaDetailsPage({ params, searchParams }: PagePro
   }> = [];
 
   try {
-    const platformRows = await db
-      .select()
-      .from(mediaItems)
-      .where(
-        and(
-          ne(mediaItems.id, media.id),
-          ne(mediaItems.sourceId, String(id))
-        )
-      );
+    const { platformRows, platformLogs } = await getRelatedPlatformPool();
+    const candidateRows = platformRows.filter(
+      (cMedia) => cMedia.id !== media.id && cMedia.sourceId !== String(id)
+    );
 
-    if (platformRows.length > 0) {
-      // Fetch all ratings across platform for related media items
-      const platformLogs = await db
-        .select({
-          mediaId: userMediaLogs.mediaId,
-          rating: userMediaLogs.rating,
-        })
-        .from(userMediaLogs)
-        .where(isNotNull(userMediaLogs.rating));
-
+    if (candidateRows.length > 0) {
+      // Index ratings across platform for candidate media items
       const ratingsMap = new Map<string, string[]>();
       for (const l of platformLogs) {
         if (l.rating) {
@@ -610,7 +650,7 @@ export default async function MediaDetailsPage({ params, searchParams }: PagePro
         (media.genres || []).map((g: string) => g.toLowerCase())
       );
 
-      const scored = platformRows.map((cMedia) => {
+      const scored = candidateRows.map((cMedia) => {
         let score = 0;
         if (extSimilarIds.has(cMedia.sourceId)) {
           score += 50;
