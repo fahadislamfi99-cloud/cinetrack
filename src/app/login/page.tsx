@@ -79,11 +79,12 @@ function LoginForm() {
   const [loading, setLoading] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
   const [resetLoading, setResetLoading] = useState(false);
-  const [error, setError] = useState<string | null>(
-    searchParams.get("error") === "auth_failed"
-      ? "Authentication failed. Please try again."
-      : null
-  );
+  const [error, setError] = useState<string | null>(() => {
+    const errParam = searchParams.get("error");
+    if (!errParam) return null;
+    if (errParam === "auth_failed") return "Authentication failed. Please try again.";
+    return errParam;
+  });
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
 
   useEffect(() => {

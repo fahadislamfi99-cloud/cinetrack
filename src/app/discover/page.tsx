@@ -197,7 +197,7 @@ export default async function DiscoverPage({ searchParams }: DiscoverPageProps) 
         containsSpoilers: Boolean(myLog?.containsSpoilers),
         fromUsername: bestLogWithReview?.profile?.username || undefined,
         updatedAt: bestLogWithReview?.log.updatedAt
-          ? bestLogWithReview.log.updatedAt.toISOString()
+          ? new Date(bestLogWithReview.log.updatedAt).toISOString()
           : undefined,
       };
     });

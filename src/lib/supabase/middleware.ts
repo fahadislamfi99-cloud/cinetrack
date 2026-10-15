@@ -5,14 +5,17 @@ export async function updateSession(request: NextRequest) {
     request,
   });
 
-  // Check Better-Auth session cookie or legacy Supabase cookie
+  // Clear any legacy Supabase cookies to prevent stale auth conflicts
+  request.cookies.getAll().forEach((c) => {
+    if (c.name.startsWith("sb-")) {
+      supabaseResponse.cookies.delete(c.name);
+    }
+  });
+
+  // Check Better-Auth session cookie
   const hasAuthCookie = request.cookies
     .getAll()
-    .some(
-      (c) =>
-        c.name.includes("better-auth.session_token") ||
-        (c.name.startsWith("sb-") && c.name.includes("auth-token"))
-    );
+    .some((c) => c.name.includes("better-auth.session_token"));
 
   if (!hasAuthCookie) {
     return { supabaseResponse, user: null };

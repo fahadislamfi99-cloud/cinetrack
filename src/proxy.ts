@@ -88,13 +88,16 @@ export default async function proxy(request: NextRequest) {
       }
     }
 
-    // Authenticated users visiting /login get redirected to their library or next target
+    // Authenticated users visiting /login get redirected to library only if not explicitly bounced with ?next=
     if (pathname === "/login") {
-      const nextTarget = sanitizeRedirect(request.nextUrl.searchParams.get("next"), "/library");
-      const targetUrl = new URL(nextTarget, request.url);
-      const redirectResponse = NextResponse.redirect(targetUrl);
-      copyCookies(supabaseResponse, redirectResponse);
-      return redirectResponse;
+      const hasNext = request.nextUrl.searchParams.has("next");
+      if (!hasNext) {
+        const cachedUsername = request.cookies.get("cinetrack_username")?.value;
+        const targetUrl = new URL(cachedUsername ? `/${cachedUsername}` : "/library", request.url);
+        const redirectResponse = NextResponse.redirect(targetUrl);
+        copyCookies(supabaseResponse, redirectResponse);
+        return redirectResponse;
+      }
     }
   }
 

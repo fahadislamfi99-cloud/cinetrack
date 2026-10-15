@@ -77,7 +77,7 @@ export async function getUserNotifications(): Promise<{
         message: r.message,
         link: r.link,
         isRead: r.isRead,
-        createdAt: r.createdAt.toISOString(),
+        createdAt: new Date(r.createdAt).toISOString(),
         actor: r.actorUsername
           ? {
               name: r.actorName || r.actorUsername,

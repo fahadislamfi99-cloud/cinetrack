@@ -327,7 +327,7 @@ export async function getAdminNotifications(): Promise<{
         description: r.description,
         category: r.category,
         status: r.status,
-        createdAt: r.createdAt.toISOString(),
+        createdAt: new Date(r.createdAt).toISOString(),
         author: r.username ? `@${r.username}` : r.email || "Anonymous",
       })),
     };

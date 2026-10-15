@@ -200,7 +200,7 @@ export default async function ProfilePage({ params, searchParams }: ProfilePageP
         currentEpisode: l.currentEpisode ?? 1,
         reviewText: l.reviewText,
         containsSpoilers: Boolean(l.containsSpoilers),
-        updatedAt: l.updatedAt ? l.updatedAt.toISOString() : undefined,
+        updatedAt: l.updatedAt ? new Date(l.updatedAt).toISOString() : undefined,
       })).sort((a, b) => {
         const isWatchingA = a.status === "watching" ? 1 : 0;
         const isWatchingB = b.status === "watching" ? 1 : 0;

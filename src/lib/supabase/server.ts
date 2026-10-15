@@ -41,11 +41,7 @@ export async function getCurrentUser(): Promise<AuthenticatedUser | null> {
     const cookieStore = await cookies();
     const hasAuthCookie = cookieStore
       .getAll()
-      .some(
-        (c) =>
-          c.name.includes("better-auth.session_token") ||
-          (c.name.startsWith("sb-") && c.name.includes("auth-token"))
-      );
+      .some((c) => c.name.includes("better-auth.session_token"));
 
     if (!hasAuthCookie) {
       return null;
