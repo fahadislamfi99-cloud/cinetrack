@@ -14,15 +14,40 @@ export function notifyAuthChange(event: string, session: any) {
   });
 }
 
+function getClientCachedUsername(): string | undefined {
+  if (typeof document === "undefined") return undefined;
+  const match = document.cookie.match(/(?:^|;\s*)cinetrack_username=([^;]+)/);
+  if (match) {
+    const decoded = decodeURIComponent(match[1]).trim();
+    if (decoded && !decoded.includes(" ") && /^[a-zA-Z0-9_.-]+$/.test(decoded)) {
+      return decoded;
+    }
+  }
+  return undefined;
+}
+
+function sanitizeSlug(val?: string | null): string | undefined {
+  if (!val) return undefined;
+  const clean = val.toLowerCase().replace(/[^a-z0-9_]/g, "");
+  return clean || undefined;
+}
+
 function mapUser(authUser: any) {
   if (!authUser) return null;
+  const username =
+    getClientCachedUsername() ||
+    sanitizeSlug(authUser.username) ||
+    sanitizeSlug(authUser.email?.split("@")[0]) ||
+    sanitizeSlug(authUser.name) ||
+    "user";
+
   return {
     id: authUser.id,
     email: authUser.email,
     name: authUser.name,
     image: authUser.image,
     user_metadata: {
-      user_name: authUser.name || undefined,
+      user_name: username,
       name: authUser.name || undefined,
       full_name: authUser.name || undefined,
       avatar_url: authUser.image || undefined,

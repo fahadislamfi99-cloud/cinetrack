@@ -43,6 +43,42 @@ export default async function LibraryPage({ searchParams }: LibraryPageProps) {
 
     if (profileRows.length > 0 && profileRows[0].username) {
       targetUsername = profileRows[0].username;
+    } else {
+      const baseSlug = (
+        user.user_metadata?.user_name ||
+        user.email?.split("@")[0] ||
+        user.name ||
+        "user"
+      )
+        .toLowerCase()
+        .replace(/[^a-z0-9_]/g, "")
+        .slice(0, 15) || "user";
+
+      let candidateSlug = baseSlug;
+      let counter = 1;
+      while (true) {
+        const existing = await db
+          .select({ id: profiles.id })
+          .from(profiles)
+          .where(eq(profiles.username, candidateSlug))
+          .limit(1);
+        if (existing.length === 0) break;
+        candidateSlug = `${baseSlug.slice(0, 12)}${counter}`;
+        counter++;
+      }
+
+      await db
+        .insert(profiles)
+        .values({
+          id: user.id,
+          username: candidateSlug,
+          fullName: user.user_metadata?.full_name || user.name || user.email?.split("@")[0],
+          avatarUrl: user.user_metadata?.avatar_url || user.image,
+          preferredCountry: "US",
+        })
+        .onConflictDoNothing();
+
+      targetUsername = candidateSlug;
     }
   } catch (err) {
     console.error("Library redirect error:", err);
@@ -61,7 +97,8 @@ export default async function LibraryPage({ searchParams }: LibraryPageProps) {
     redirect(`/${targetUsername}${suffix}`);
   }
 
-  const fallbackUsername = user.user_metadata?.user_name;
+  const rawFallback = user.user_metadata?.user_name || user.email?.split("@")[0];
+  const fallbackUsername = rawFallback ? rawFallback.toLowerCase().replace(/[^a-z0-9_]/g, "") : null;
   if (fallbackUsername) {
     try {
       cookieStore.set("cinetrack_username", fallbackUsername, {

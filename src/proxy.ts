@@ -78,8 +78,9 @@ export default async function proxy(request: NextRequest) {
   } else {
     // Fast path: authenticated user visiting /library redirects directly to their vanity handle
     if (pathname === "/library") {
-      const cachedUsername = request.cookies.get("cinetrack_username")?.value;
-      if (cachedUsername) {
+      const rawCookie = request.cookies.get("cinetrack_username")?.value;
+      const cachedUsername = rawCookie ? decodeURIComponent(rawCookie).trim() : null;
+      if (cachedUsername && !cachedUsername.includes(" ") && /^[a-zA-Z0-9_.-]+$/.test(cachedUsername)) {
         const targetUrl = request.nextUrl.clone();
         targetUrl.pathname = `/${cachedUsername}`;
         const redirectResponse = NextResponse.redirect(targetUrl, 307);
@@ -92,8 +93,13 @@ export default async function proxy(request: NextRequest) {
     if (pathname === "/login") {
       const hasNext = request.nextUrl.searchParams.has("next");
       if (!hasNext) {
-        const cachedUsername = request.cookies.get("cinetrack_username")?.value;
-        const targetUrl = new URL(cachedUsername ? `/${cachedUsername}` : "/library", request.url);
+        const rawCookie = request.cookies.get("cinetrack_username")?.value;
+        const cachedUsername = rawCookie ? decodeURIComponent(rawCookie).trim() : null;
+        const validUsername =
+          cachedUsername && !cachedUsername.includes(" ") && /^[a-zA-Z0-9_.-]+$/.test(cachedUsername)
+            ? cachedUsername
+            : null;
+        const targetUrl = new URL(validUsername ? `/${validUsername}` : "/library", request.url);
         const redirectResponse = NextResponse.redirect(targetUrl);
         copyCookies(supabaseResponse, redirectResponse);
         return redirectResponse;
@@ -125,7 +131,20 @@ export default async function proxy(request: NextRequest) {
     }
   }
 
-  // 4. Handle vanity profile URL: /username -> /u/username (internal rewrite)
+  // 4. Redirect paths with spaces or unencoded characters to clean slug (e.g. /Fahad%20Islam -> /fahadislam)
+  const decodedPath = decodeURIComponent(pathname);
+  if (decodedPath.includes(" ")) {
+    const cleanSlug = decodedPath.slice(1).toLowerCase().replace(/[^a-z0-9_]/g, "");
+    if (cleanSlug && !RESERVED_ROUTES.has(cleanSlug)) {
+      const url = request.nextUrl.clone();
+      url.pathname = `/${cleanSlug}`;
+      const redirectResponse = NextResponse.redirect(url, 308);
+      copyCookies(supabaseResponse, redirectResponse);
+      return redirectResponse;
+    }
+  }
+
+  // 5. Handle vanity profile URL: /username -> /u/username (internal rewrite)
   const match = pathname.match(/^\/([a-zA-Z0-9_.-]+)$/);
   if (match) {
     const slug = match[1];

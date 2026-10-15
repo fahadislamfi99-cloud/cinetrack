@@ -30,7 +30,13 @@ import { usePwaInstall } from "@/components/pwa/pwa-install-provider";
 function getCachedUsername(): string | null {
   if (typeof document === "undefined") return null;
   const match = document.cookie.match(/(?:^|;\s*)cinetrack_username=([^;]+)/);
-  if (match) return decodeURIComponent(match[1]);
+  if (match) {
+    const val = decodeURIComponent(match[1]).trim();
+    if (val && !val.includes(" ") && /^[a-zA-Z0-9_.-]+$/.test(val)) {
+      return val;
+    }
+    document.cookie = "cinetrack_username=; path=/; max-age=0";
+  }
   return null;
 }
 
@@ -53,7 +59,8 @@ function BottomNavContent() {
     supabase.auth.getSession().then(({ data: { session } }) => {
       if (session?.user) {
         const cached = getCachedUsername();
-        const username = session.user.user_metadata?.user_name || cached || session.user.email?.split("@")[0];
+        const rawUsername = cached || session.user.user_metadata?.user_name || session.user.email?.split("@")[0];
+        const username = rawUsername ? rawUsername.toLowerCase().replace(/[^a-z0-9_]/g, "") : undefined;
         setUser({ email: session.user.email, username });
       } else {
         setUser(null);
@@ -63,7 +70,8 @@ function BottomNavContent() {
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       if (session?.user) {
         const cached = getCachedUsername();
-        const username = session.user.user_metadata?.user_name || cached || session.user.email?.split("@")[0];
+        const rawUsername = cached || session.user.user_metadata?.user_name || session.user.email?.split("@")[0];
+        const username = rawUsername ? rawUsername.toLowerCase().replace(/[^a-z0-9_]/g, "") : undefined;
         setUser({ email: session.user.email, username });
       } else {
         setUser(null);

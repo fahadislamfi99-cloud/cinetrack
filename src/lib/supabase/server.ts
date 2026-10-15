@@ -1,7 +1,7 @@
 import { headers, cookies } from "next/headers";
 import { auth } from "@/lib/auth/auth";
 import { db } from "@/lib/db";
-import { user as userTable, account as accountTable } from "@/lib/db/schema";
+import { user as userTable, account as accountTable, profiles } from "@/lib/db/schema";
 import { eq, and } from "drizzle-orm";
 import bcrypt from "bcryptjs";
 
@@ -54,11 +54,39 @@ export async function getCurrentUser(): Promise<AuthenticatedUser | null> {
     }
 
     const u = session.user;
+    let username = u.email?.split("@")[0]?.toLowerCase().replace(/[^a-z0-9_]/g, "") || "user";
+    let fullName = u.name || undefined;
+    let avatarUrl = u.image || undefined;
+
+    try {
+      const [profile] = await db
+        .select({
+          username: profiles.username,
+          fullName: profiles.fullName,
+          avatarUrl: profiles.avatarUrl,
+        })
+        .from(profiles)
+        .where(eq(profiles.id, u.id))
+        .limit(1);
+
+      if (profile?.username) {
+        username = profile.username;
+      }
+      if (profile?.fullName) {
+        fullName = profile.fullName;
+      }
+      if (profile?.avatarUrl) {
+        avatarUrl = profile.avatarUrl;
+      }
+    } catch (dbErr) {
+      console.error("Profile lookup in getCurrentUser error:", dbErr);
+    }
+
     return {
       id: u.id,
       email: u.email,
-      name: u.name || undefined,
-      image: u.image || undefined,
+      name: fullName,
+      image: avatarUrl,
       created_at: u.createdAt
         ? new Date(u.createdAt).toISOString()
         : new Date().toISOString(),
@@ -66,10 +94,10 @@ export async function getCurrentUser(): Promise<AuthenticatedUser | null> {
         ? new Date(u.updatedAt).toISOString()
         : new Date().toISOString(),
       user_metadata: {
-        user_name: u.name || undefined,
-        name: u.name || undefined,
-        full_name: u.name || undefined,
-        avatar_url: u.image || undefined,
+        user_name: username,
+        name: fullName,
+        full_name: fullName,
+        avatar_url: avatarUrl,
       },
       app_metadata: {
         provider: "email",
