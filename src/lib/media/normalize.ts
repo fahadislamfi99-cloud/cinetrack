@@ -8,7 +8,7 @@ export interface NormalizedMedia {
   title: string;
   originalTitle?: string;
   posterPath: string | null;
-  backdropPath: string | null;
+  backdropPath?: string | null;
   releaseDate?: string;
   year?: string;
   endYear?: string;

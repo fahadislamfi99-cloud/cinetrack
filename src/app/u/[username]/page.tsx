@@ -181,6 +181,7 @@ export default async function ProfilePage({ params, searchParams }: ProfilePageP
           mediaType: l.mediaType as "movie" | "series" | "anime",
           title: l.title,
           posterPath: l.posterPath || null,
+          backdropPath: null,
           year: l.releaseDate ? l.releaseDate.substring(0, 4) : undefined,
           rating: l.rating ? Number(l.rating) : 0,
           totalEpisodes: l.totalEpisodes || 1,

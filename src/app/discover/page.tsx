@@ -222,6 +222,7 @@ export default async function DiscoverPage({ searchParams }: DiscoverPageProps) 
           mediaType: m.mediaType as "movie" | "series" | "anime",
           title: m.title,
           posterPath: m.posterPath || null,
+          backdropPath: null,
           releaseDate: m.releaseDate || undefined,
           year: m.releaseDate ? m.releaseDate.substring(0, 4) : undefined,
           rating: m.rating ? Number(m.rating) : 0,
