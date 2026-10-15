@@ -346,7 +346,11 @@ export function DiscoverView({
                 const hasMore = cat.items.length > visibleCount;
 
                 return (
-                  <section key={cat.id} className="flex flex-col gap-2.5 sm:gap-3.5">
+                  <section
+                    key={cat.id}
+                    style={{ contentVisibility: "auto", containIntrinsicSize: "0 400px" }}
+                    className="flex flex-col gap-2.5 sm:gap-3.5"
+                  >
                     {/* Rating Category Header */}
                     <div className="flex items-center justify-between border-b border-white/[0.06] pb-2.5 sm:pb-3">
                       <div className="flex items-center gap-2 sm:gap-2.5">

@@ -38,31 +38,30 @@ interface DiscoverPageProps {
 
 function compactStreamingProviders(raw: any) {
   if (!raw || typeof raw !== "object") return {};
-  const usFlat = Array.isArray(raw.US?.flatrate)
-    ? raw.US.flatrate.map((p: any) => ({
-        provider_name: p.provider_name,
-        logo_path: p.logo_path,
-      }))
-    : [];
-  const allMap = new Map<string, { provider_name: string; logo_path?: string }>();
+  const usTop =
+    raw.US?.flatrate?.[0]?.provider_name ||
+    raw.US?.ads?.[0]?.provider_name ||
+    raw.US?.buy?.[0]?.provider_name ||
+    raw.US?.rent?.[0]?.provider_name ||
+    null;
+
+  const providerNames = new Set<string>();
   for (const region of Object.values(raw as Record<string, any>)) {
     if (!region || typeof region !== "object") continue;
     for (const list of [(region as any).flatrate, (region as any).ads, (region as any).buy, (region as any).rent]) {
       if (Array.isArray(list)) {
         for (const p of list) {
-          if (p?.provider_name && !allMap.has(p.provider_name.toLowerCase())) {
-            allMap.set(p.provider_name.toLowerCase(), {
-              provider_name: p.provider_name,
-              logo_path: p.logo_path,
-            });
+          if (p?.provider_name && typeof p.provider_name === "string") {
+            providerNames.add(p.provider_name.toLowerCase());
           }
         }
       }
     }
   }
+
   return {
-    US: { flatrate: usFlat },
-    ALL: { flatrate: Array.from(allMap.values()) },
+    US: usTop ? { flatrate: [{ provider_name: usTop }] } : undefined,
+    ALL: { flatrate: Array.from(providerNames).map((name) => ({ provider_name: name })) },
   };
 }
 
@@ -80,13 +79,10 @@ const getDiscoverCatalog = unstable_cache(
           sourceId: mediaItems.sourceId,
           mediaType: mediaItems.mediaType,
           title: mediaItems.title,
-          originalTitle: mediaItems.originalTitle,
           posterPath: mediaItems.posterPath,
-          backdropPath: mediaItems.backdropPath,
           releaseDate: mediaItems.releaseDate,
           rating: mediaItems.rating,
           totalEpisodes: mediaItems.totalEpisodes,
-          runtime: mediaItems.runtime,
           genres: mediaItems.genres,
           streamingProviders: mediaItems.streamingProviders,
         })
@@ -132,7 +128,7 @@ const getDiscoverCatalog = unstable_cache(
 
     return { allMedia, allDbLogs };
   },
-  ["discover-catalog-v2"],
+  ["discover-catalog-v3"],
   { revalidate: 300, tags: ["discover"] }
 );
 
@@ -225,14 +221,11 @@ export default async function DiscoverPage({ searchParams }: DiscoverPageProps) 
           sourceId: m.sourceId,
           mediaType: m.mediaType as "movie" | "series" | "anime",
           title: m.title,
-          originalTitle: m.originalTitle || undefined,
           posterPath: m.posterPath || null,
-          backdropPath: m.backdropPath || null,
           releaseDate: m.releaseDate || undefined,
           year: m.releaseDate ? m.releaseDate.substring(0, 4) : undefined,
           rating: m.rating ? Number(m.rating) : 0,
           totalEpisodes: m.totalEpisodes || 1,
-          runtime: m.runtime || undefined,
           genres: m.genres || [],
           streamingProviders: (m.streamingProviders as any) || {},
         },
