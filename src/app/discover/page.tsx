@@ -36,13 +36,43 @@ interface DiscoverPageProps {
   }>;
 }
 
+function compactStreamingProviders(raw: any) {
+  if (!raw || typeof raw !== "object") return {};
+  const usFlat = Array.isArray(raw.US?.flatrate)
+    ? raw.US.flatrate.map((p: any) => ({
+        provider_name: p.provider_name,
+        logo_path: p.logo_path,
+      }))
+    : [];
+  const allMap = new Map<string, { provider_name: string; logo_path?: string }>();
+  for (const region of Object.values(raw as Record<string, any>)) {
+    if (!region || typeof region !== "object") continue;
+    for (const list of [(region as any).flatrate, (region as any).ads, (region as any).buy, (region as any).rent]) {
+      if (Array.isArray(list)) {
+        for (const p of list) {
+          if (p?.provider_name && !allMap.has(p.provider_name.toLowerCase())) {
+            allMap.set(p.provider_name.toLowerCase(), {
+              provider_name: p.provider_name,
+              logo_path: p.logo_path,
+            });
+          }
+        }
+      }
+    }
+  }
+  return {
+    US: { flatrate: usFlat },
+    ALL: { flatrate: Array.from(allMap.values()) },
+  };
+}
+
 /**
  * Cache platform discover catalog at the edge for 5 minutes.
  * Prevents thousands of visitors and crawlers from repeatedly hammering PostgreSQL.
  */
 const getDiscoverCatalog = unstable_cache(
   async () => {
-    const [allMedia, allDbLogs] = await Promise.all([
+    const [rawMedia, allDbLogs] = await Promise.all([
       db
         .select({
           id: mediaItems.id,
@@ -68,7 +98,19 @@ const getDiscoverCatalog = unstable_cache(
         }),
       db
         .select({
-          log: userMediaLogs,
+          log: {
+            id: userMediaLogs.id,
+            userId: userMediaLogs.userId,
+            mediaId: userMediaLogs.mediaId,
+            status: userMediaLogs.status,
+            rating: userMediaLogs.rating,
+            episodesWatched: userMediaLogs.episodesWatched,
+            currentSeason: userMediaLogs.currentSeason,
+            currentEpisode: userMediaLogs.currentEpisode,
+            reviewText: userMediaLogs.reviewText,
+            containsSpoilers: userMediaLogs.containsSpoilers,
+            updatedAt: userMediaLogs.updatedAt,
+          },
           profile: {
             username: profiles.username,
             fullName: profiles.fullName,
@@ -82,9 +124,15 @@ const getDiscoverCatalog = unstable_cache(
           return [];
         }),
     ]);
+
+    const allMedia = rawMedia.map((m) => ({
+      ...m,
+      streamingProviders: compactStreamingProviders(m.streamingProviders),
+    }));
+
     return { allMedia, allDbLogs };
   },
-  ["discover-catalog-v1"],
+  ["discover-catalog-v2"],
   { revalidate: 300, tags: ["discover"] }
 );
 
@@ -144,7 +192,7 @@ export default async function DiscoverPage({ searchParams }: DiscoverPageProps) 
 
   // 2. Group community logs by mediaId & index current user logs directly in-memory
   const logsByMediaId = new Map<string, typeof allDbLogs>();
-  const currentUserLogsMap = new Map<string, typeof userMediaLogs.$inferSelect>();
+  const currentUserLogsMap = new Map<string, (typeof allDbLogs)[number]["log"]>();
 
   for (const l of allDbLogs) {
     const list = logsByMediaId.get(l.log.mediaId) || [];
