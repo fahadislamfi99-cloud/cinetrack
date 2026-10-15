@@ -1,44 +1,23 @@
-import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 
 export async function updateSession(request: NextRequest) {
-  let supabaseResponse = NextResponse.next({
+  const supabaseResponse = NextResponse.next({
     request,
   });
 
-  // Fast path: If visitor has no Supabase auth token cookies, skip remote Auth API network call
+  // Check Better-Auth session cookie or legacy Supabase cookie
   const hasAuthCookie = request.cookies
     .getAll()
-    .some((c) => c.name.startsWith("sb-") && c.name.includes("auth-token"));
+    .some(
+      (c) =>
+        c.name.includes("better-auth.session_token") ||
+        (c.name.startsWith("sb-") && c.name.includes("auth-token"))
+    );
 
   if (!hasAuthCookie) {
     return { supabaseResponse, user: null };
   }
 
-  const supabase = createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    {
-      cookies: {
-        getAll() {
-          return request.cookies.getAll();
-        },
-        setAll(cookiesToSet) {
-          cookiesToSet.forEach(({ name, value }) => request.cookies.set(name, value));
-          supabaseResponse = NextResponse.next({
-            request,
-          });
-          cookiesToSet.forEach(({ name, value, options }) =>
-            supabaseResponse.cookies.set(name, value, options)
-          );
-        },
-      },
-    }
-  );
-
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  return { supabaseResponse, user };
+  // Authoritative session verification runs in Server Components / Actions.
+  return { supabaseResponse, user: { authenticated: true } };
 }

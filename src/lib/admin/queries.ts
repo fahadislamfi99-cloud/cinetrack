@@ -409,8 +409,7 @@ export async function getPaginatedUsers(
       statusUpdatedAt: profiles.statusUpdatedAt,
       createdAt: profiles.createdAt,
       email: authUsers.email,
-      lastSignInAt: authUsers.lastSignInAt,
-      rawAppMetaData: authUsers.rawAppMetaData,
+      lastSignInAt: authUsers.updatedAt,
     })
     .from(profiles)
     .leftJoin(authUsers, eq(profiles.id, authUsers.id))
@@ -418,8 +417,7 @@ export async function getPaginatedUsers(
 
   const mapped: AdminUserListItem[] = rows.map((r) => {
     const act = activityMap.get(r.id) || { library: 0, reviews: 0, ratings: 0 };
-    const rawMeta = r.rawAppMetaData as { provider?: string; providers?: string[] } | null;
-    const provider = rawMeta?.provider || (rawMeta?.providers && rawMeta.providers[0]) || "email";
+    const provider = "email";
     return {
       id: r.id,
       username: r.username,
@@ -508,8 +506,7 @@ export async function getUserDetail(userId: string): Promise<AdminUserDetail | n
       createdAt: profiles.createdAt,
       updatedAt: profiles.updatedAt,
       email: authUsers.email,
-      lastSignInAt: authUsers.lastSignInAt,
-      rawAppMetaData: authUsers.rawAppMetaData,
+      lastSignInAt: authUsers.updatedAt,
     })
     .from(profiles)
     .leftJoin(authUsers, eq(profiles.id, authUsers.id))
@@ -518,8 +515,7 @@ export async function getUserDetail(userId: string): Promise<AdminUserDetail | n
 
   if (!row) return null;
 
-  const rawMeta = row.rawAppMetaData as { provider?: string; providers?: string[] } | null;
-  const provider = rawMeta?.provider || (rawMeta?.providers && rawMeta.providers[0]) || "email";
+  const provider = "email";
 
   return {
     ...row,
