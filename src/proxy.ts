@@ -76,16 +76,20 @@ export default async function proxy(request: NextRequest) {
       return redirectResponse;
     }
   } else {
-    // Fast path: authenticated user visiting /library redirects directly to their vanity handle
+    // Fast path: authenticated user visiting /library immediately renders their library (zero-hop rewrite)
     if (pathname === "/library") {
       const rawCookie = request.cookies.get("cinetrack_username")?.value;
       const cachedUsername = rawCookie ? decodeURIComponent(rawCookie).trim() : null;
       if (cachedUsername && !cachedUsername.includes(" ") && /^[a-zA-Z0-9_.-]+$/.test(cachedUsername)) {
         const targetUrl = request.nextUrl.clone();
-        targetUrl.pathname = `/${cachedUsername}`;
-        const redirectResponse = NextResponse.redirect(targetUrl, 307);
-        copyCookies(supabaseResponse, redirectResponse);
-        return redirectResponse;
+        targetUrl.pathname = `/u/${cachedUsername}`;
+        const requestHeaders = new Headers(request.headers);
+        requestHeaders.set("x-internal-profile-rewrite", "1");
+        const rewriteResponse = NextResponse.rewrite(targetUrl, {
+          request: { headers: requestHeaders },
+        });
+        copyCookies(supabaseResponse, rewriteResponse);
+        return rewriteResponse;
       }
     }
 
