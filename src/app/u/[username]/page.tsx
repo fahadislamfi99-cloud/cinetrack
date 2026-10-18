@@ -93,6 +93,7 @@ const getProfileLibraryData = (normalizedUsername: string) =>
             releaseDate: mediaItems.releaseDate,
             rating: mediaItems.rating,
             totalEpisodes: mediaItems.totalEpisodes,
+            runtime: mediaItems.runtime,
             genres: mediaItems.genres,
           })
           .from(userMediaLogs)
@@ -156,19 +157,26 @@ export default async function ProfilePage({ params, searchParams }: ProfilePageP
       stats.completed = allUserLogs.filter((l) => l.logStatus === "completed").length;
 
       stats.totalMinutes = allUserLogs.reduce((acc, curr) => {
+        if (curr.logStatus === "plan_to_watch") return acc;
+
         const fallback =
           curr.mediaType === "movie"
             ? 105
             : curr.mediaType === "anime"
             ? 24
             : 45;
-        const runtime = curr.runtime || fallback;
-        const eps =
-          curr.mediaType === "movie"
-            ? curr.logStatus === "completed" || curr.logStatus === "watching"
-              ? 1
-              : 0
-            : curr.episodesWatched || (curr.logStatus === "completed" ? curr.totalEpisodes || 1 : 0);
+        const runtime = Number(curr.runtime) || fallback;
+
+        let eps = 0;
+        if (curr.mediaType === "movie") {
+          eps = curr.logStatus === "completed" || curr.logStatus === "watching" ? 1 : 0;
+        } else {
+          eps =
+            curr.logStatus === "completed"
+              ? Math.max(curr.episodesWatched || 0, curr.totalEpisodes || 1)
+              : Math.max(0, curr.episodesWatched || 0);
+        }
+
         return acc + runtime * eps;
       }, 0);
 
@@ -185,6 +193,7 @@ export default async function ProfilePage({ params, searchParams }: ProfilePageP
           year: l.releaseDate ? l.releaseDate.substring(0, 4) : undefined,
           rating: l.rating ? Number(l.rating) : 0,
           totalEpisodes: l.totalEpisodes || 1,
+          runtime: l.runtime ? Number(l.runtime) : undefined,
           genres: l.genres || [],
         },
         status: l.logStatus as any,

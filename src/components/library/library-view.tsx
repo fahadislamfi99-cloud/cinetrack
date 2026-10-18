@@ -208,8 +208,20 @@ export function LibraryView({
       ? `${selectedRatingOpt.label} (${selectedRatingOpt.count})`
       : selectedRatingOpt.label;
 
-  const days = Math.floor(stats.totalMinutes / (60 * 24));
-  const hours = Math.floor((stats.totalMinutes % (60 * 24)) / 60);
+  const watchTimeFormatted = useMemo(() => {
+    if (!stats.totalMinutes || stats.totalMinutes <= 0) return "0h";
+    const d = Math.floor(stats.totalMinutes / (60 * 24));
+    const h = Math.floor((stats.totalMinutes % (60 * 24)) / 60);
+    const m = Math.floor(stats.totalMinutes % 60);
+
+    if (d > 0) {
+      return `${d}d ${h}h`;
+    }
+    if (h > 0) {
+      return m > 0 ? `${h}h ${m}m` : `${h}h`;
+    }
+    return `${m}m`;
+  }, [stats.totalMinutes]);
 
   // Filter & Sort Logic
   const filteredItems = useMemo(() => {
@@ -559,7 +571,7 @@ export function LibraryView({
 
             <div className="flex flex-col items-center justify-center px-1 sm:px-2">
               <span className="text-lg sm:text-2xl font-black text-[#3B9EFF] tracking-tight">
-                {days}d {hours}h
+                {watchTimeFormatted}
               </span>
               <span className="text-[9px] sm:text-xs font-bold uppercase tracking-wider text-[#6F7886] mt-0.5">
                 Watch Time
