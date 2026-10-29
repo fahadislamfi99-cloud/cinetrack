@@ -1,0 +1,63 @@
+{
+  "name": "CineTrack Media Agent",
+  "description": "AI agent for discovering, searching, and tracking movies, TV series, anime, user reviews, and streaming platform availability on CineTrack.",
+  "version": "1.0.0",
+  "provider": {
+    "name": "CineTrack",
+    "url": "https://cinetrack.xyz"
+  },
+  "supportedInterfaces": [
+    {
+      "url": "https://cinetrack.xyz/api/search",
+      "protocolBinding": "HTTP+JSON",
+      "protocolVersion": "1.0"
+    }
+  ],
+  "capabilities": {
+    "streaming": false,
+    "pushNotifications": false,
+    "extendedAgentCard": false
+  },
+  "defaultInputModes": [
+    "application/json",
+    "text/plain"
+  ],
+  "defaultOutputModes": [
+    "application/json"
+  ],
+  "skills": [
+    {
+      "id": "media-search",
+      "name": "Media Search",
+      "description": "Searches movies, television series, and anime with consensus ratings, reviews, and streaming provider availability.",
+      "tags": [
+        "movies",
+        "tv",
+        "anime",
+        "search",
+        "streaming",
+        "ratings"
+      ],
+      "examples": [
+        "Search for Inception",
+        "Find Attack on Titan anime ratings and streaming platforms"
+      ]
+    },
+    {
+      "id": "media-discovery",
+      "name": "Media Discovery & Curation",
+      "description": "Browse community-rated entertainment categorized into Masterpieces, Good, Average, and Poor tiers.",
+      "tags": [
+        "discover",
+        "curated",
+        "movies",
+        "anime",
+        "series"
+      ],
+      "examples": [
+        "Discover masterpiece movies and shows",
+        "Show top rated community recommendations"
+      ]
+    }
+  ]
+}

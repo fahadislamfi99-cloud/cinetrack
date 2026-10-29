@@ -1,18 +1,17 @@
 {
-  "$schema": "https://raw.githubusercontent.com/ards-project/ard-spec/main/spec/schemas/ai-catalog.schema.json",
   "specVersion": "1.0",
   "host": {
     "displayName": "CineTrack",
-    "identifier": "urn:ai:cinetrack.xyz",
+    "identifier": "did:web:cinetrack.xyz",
     "documentationUrl": "https://cinetrack.xyz/about",
     "logoUrl": "https://cinetrack.xyz/icon.png"
   },
   "entries": [
     {
-      "identifier": "urn:ai:cinetrack.xyz:api:search",
+      "identifier": "urn:air:cinetrack.xyz:media:search",
       "displayName": "CineTrack Media Search API",
-      "type": "application/json",
-      "url": "https://cinetrack.xyz/api/search",
+      "type": "application/agent-card+json",
+      "url": "https://cinetrack.xyz/.well-known/agent-card.json",
       "description": "Search movies, television series, and anime with community ratings, streaming availability, and user reviews.",
       "tags": [
         "entertainment",
@@ -36,10 +35,10 @@
       "updatedAt": "2026-10-29T12:00:00Z"
     },
     {
-      "identifier": "urn:ai:cinetrack.xyz:discover",
+      "identifier": "urn:air:cinetrack.xyz:media:discover",
       "displayName": "CineTrack Discover & Curated Masterpieces",
-      "type": "text/html",
-      "url": "https://cinetrack.xyz/discover",
+      "type": "application/agent-card+json",
+      "url": "https://cinetrack.xyz/.well-known/agent-card.json",
       "description": "Discover community-rated movies, series, and anime categorized by rating tier into Masterpieces, Good, Average, and Poor.",
       "tags": [
         "discover",
@@ -62,4 +61,3 @@
     }
   ]
 }
-

@@ -21,6 +21,7 @@ export default function robots(): MetadataRoute.Robots {
           "/u/",
           "/.well-known/",
           "/ai-catalog.json",
+          "/agent-card.json",
         ],
         disallow: ["/admin/", "/api/", "/settings/", "/auth/", "/login"],
       },
