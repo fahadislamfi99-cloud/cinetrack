@@ -30,6 +30,48 @@ const nextConfig: NextConfig = {
   async headers() {
     return [
       {
+        source: "/.well-known/ai-catalog.json",
+        headers: [
+          {
+            key: "Content-Type",
+            value: "application/json",
+          },
+          {
+            key: "Access-Control-Allow-Origin",
+            value: "*",
+          },
+          {
+            key: "Access-Control-Allow-Methods",
+            value: "GET, OPTIONS",
+          },
+          {
+            key: "Cache-Control",
+            value: "public, max-age=3600, stale-while-revalidate=86400",
+          },
+        ],
+      },
+      {
+        source: "/ai-catalog.json",
+        headers: [
+          {
+            key: "Content-Type",
+            value: "application/json",
+          },
+          {
+            key: "Access-Control-Allow-Origin",
+            value: "*",
+          },
+          {
+            key: "Access-Control-Allow-Methods",
+            value: "GET, OPTIONS",
+          },
+          {
+            key: "Cache-Control",
+            value: "public, max-age=3600, stale-while-revalidate=86400",
+          },
+        ],
+      },
+      {
         source: "/:path*",
         headers: [
           {
@@ -67,4 +109,3 @@ const nextConfig: NextConfig = {
 };
 
 export default nextConfig;
-

@@ -1,0 +1,65 @@
+{
+  "$schema": "https://raw.githubusercontent.com/ards-project/ard-spec/main/spec/schemas/ai-catalog.schema.json",
+  "specVersion": "1.0",
+  "host": {
+    "displayName": "CineTrack",
+    "identifier": "urn:ai:cinetrack.xyz",
+    "documentationUrl": "https://cinetrack.xyz/about",
+    "logoUrl": "https://cinetrack.xyz/icon.png"
+  },
+  "entries": [
+    {
+      "identifier": "urn:ai:cinetrack.xyz:api:search",
+      "displayName": "CineTrack Media Search API",
+      "type": "application/json",
+      "url": "https://cinetrack.xyz/api/search",
+      "description": "Search movies, television series, and anime with community ratings, streaming availability, and user reviews.",
+      "tags": [
+        "entertainment",
+        "movies",
+        "tv",
+        "anime",
+        "search",
+        "ratings"
+      ],
+      "capabilities": [
+        "MediaSearch",
+        "RatingDiscovery",
+        "StreamingAvailability"
+      ],
+      "representativeQueries": [
+        "search movies and television series on cinetrack",
+        "find top rated anime with user reviews",
+        "check streaming availability for films and shows"
+      ],
+      "version": "1.0.0",
+      "updatedAt": "2026-10-29T12:00:00Z"
+    },
+    {
+      "identifier": "urn:ai:cinetrack.xyz:discover",
+      "displayName": "CineTrack Discover & Curated Masterpieces",
+      "type": "text/html",
+      "url": "https://cinetrack.xyz/discover",
+      "description": "Discover community-rated movies, series, and anime categorized by rating tier into Masterpieces, Good, Average, and Poor.",
+      "tags": [
+        "discover",
+        "movies",
+        "series",
+        "anime",
+        "curation"
+      ],
+      "capabilities": [
+        "MediaDiscovery",
+        "RatingCategorization"
+      ],
+      "representativeQueries": [
+        "discover masterpiece movies and series",
+        "browse curated user recommendations and ratings",
+        "find popular anime and films on cinetrack"
+      ],
+      "version": "1.0.0",
+      "updatedAt": "2026-10-29T12:00:00Z"
+    }
+  ]
+}
+

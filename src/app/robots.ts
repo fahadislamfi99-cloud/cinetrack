@@ -19,6 +19,8 @@ export default function robots(): MetadataRoute.Robots {
           "/series/",
           "/anime/",
           "/u/",
+          "/.well-known/",
+          "/ai-catalog.json",
         ],
         disallow: ["/admin/", "/api/", "/settings/", "/auth/", "/login"],
       },
