@@ -44,6 +44,9 @@ interface PageProps {
  */
 const getRelatedPlatformPool = unstable_cache(
   async () => {
+    if (!process.env.DATABASE_URL) {
+      return { platformRows: [], platformLogs: [] };
+    }
     const [platformRows, platformLogs] = await Promise.all([
       db
         .select({
@@ -92,29 +95,36 @@ const getRelatedPlatformPool = unstable_cache(
 
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
   const { type, id } = await params;
+  const cleanId = id.split(":").pop() || id;
   let media: NormalizedMedia | null = null;
 
   try {
     if (type === "movie") {
-      const raw = await tmdb.getMovieDetails(id);
+      const raw = await tmdb.getMovieDetails(cleanId);
       media = normalizeTmdbMovie(raw);
     } else if (type === "series" || type === "tv") {
-      const raw = await tmdb.getTVDetails(id);
+      const raw = await tmdb.getTVDetails(cleanId);
       media = normalizeTmdbTV(raw);
     } else if (type === "anime") {
-      const [dbItem] = await db
-        .select()
-        .from(mediaItems)
-        .where(
-          or(
-            eq(mediaItems.id, id),
-            eq(mediaItems.id, `tmdb:tv:${id}`),
-            eq(mediaItems.id, `tmdb:movie:${id}`),
-            eq(mediaItems.id, `anilist:${id}`),
-            eq(mediaItems.sourceId, id)
+      let dbItem: any = null;
+      try {
+        const rows = await db
+          .select()
+          .from(mediaItems)
+          .where(
+            or(
+              eq(mediaItems.id, cleanId),
+              eq(mediaItems.id, `tmdb:tv:${cleanId}`),
+              eq(mediaItems.id, `tmdb:movie:${cleanId}`),
+              eq(mediaItems.id, `anilist:${cleanId}`),
+              eq(mediaItems.sourceId, cleanId)
+            )
           )
-        )
-        .limit(1);
+          .limit(1);
+        dbItem = rows[0];
+      } catch (dbErr) {
+        // Safe fallback if database is unavailable or unseeded
+      }
 
       if (dbItem?.id.startsWith("tmdb:tv:")) {
         const raw = await tmdb.getTVDetails(dbItem.sourceId);
@@ -127,14 +137,14 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
         media = normalizeAniListAnime(raw);
       } else {
         try {
-          const raw = await anilist.getAnimeDetails(id);
+          const raw = await anilist.getAnimeDetails(cleanId);
           media = normalizeAniListAnime(raw);
         } catch {
           try {
-            const raw = await tmdb.getTVDetails(id);
+            const raw = await tmdb.getTVDetails(cleanId);
             media = normalizeTmdbTV(raw);
           } catch {
-            const raw = await tmdb.getMovieDetails(id);
+            const raw = await tmdb.getMovieDetails(cleanId);
             media = normalizeTmdbMovie(raw);
           }
         }
@@ -197,6 +207,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
 
 export default async function MediaDetailsPage({ params, searchParams }: PageProps) {
   const { type, id } = await params;
+  const cleanId = id.split(":").pop() || id;
   const resolvedSearchParams = (await searchParams) || {};
   const fromUsername = resolvedSearchParams.from || resolvedSearchParams.ref;
   const fallbackUrl = fromUsername
@@ -210,25 +221,31 @@ export default async function MediaDetailsPage({ params, searchParams }: PagePro
 
   try {
     if (type === "movie") {
-      rawDetails = await tmdb.getMovieDetails(id);
+      rawDetails = await tmdb.getMovieDetails(cleanId);
       media = normalizeTmdbMovie(rawDetails);
     } else if (type === "series" || type === "tv") {
-      rawDetails = await tmdb.getTVDetails(id);
+      rawDetails = await tmdb.getTVDetails(cleanId);
       media = normalizeTmdbTV(rawDetails);
     } else if (type === "anime") {
-      const [dbItem] = await db
-        .select()
-        .from(mediaItems)
-        .where(
-          or(
-            eq(mediaItems.id, id),
-            eq(mediaItems.id, `tmdb:tv:${id}`),
-            eq(mediaItems.id, `tmdb:movie:${id}`),
-            eq(mediaItems.id, `anilist:${id}`),
-            eq(mediaItems.sourceId, id)
+      let dbItem: any = null;
+      try {
+        const rows = await db
+          .select()
+          .from(mediaItems)
+          .where(
+            or(
+              eq(mediaItems.id, cleanId),
+              eq(mediaItems.id, `tmdb:tv:${cleanId}`),
+              eq(mediaItems.id, `tmdb:movie:${cleanId}`),
+              eq(mediaItems.id, `anilist:${cleanId}`),
+              eq(mediaItems.sourceId, cleanId)
+            )
           )
-        )
-        .limit(1);
+          .limit(1);
+        dbItem = rows[0];
+      } catch (dbErr) {
+        // Safe fallback if database is unavailable or unseeded
+      }
 
       if (dbItem?.id.startsWith("tmdb:tv:")) {
         rawDetails = await tmdb.getTVDetails(dbItem.sourceId);
@@ -241,14 +258,14 @@ export default async function MediaDetailsPage({ params, searchParams }: PagePro
         media = normalizeAniListAnime(rawDetails);
       } else {
         try {
-          rawDetails = await anilist.getAnimeDetails(id);
+          rawDetails = await anilist.getAnimeDetails(cleanId);
           media = normalizeAniListAnime(rawDetails);
         } catch {
           try {
-            rawDetails = await tmdb.getTVDetails(id);
+            rawDetails = await tmdb.getTVDetails(cleanId);
             media = normalizeTmdbTV(rawDetails);
           } catch {
-            rawDetails = await tmdb.getMovieDetails(id);
+            rawDetails = await tmdb.getMovieDetails(cleanId);
             media = normalizeTmdbMovie(rawDetails);
           }
         }
@@ -475,7 +492,8 @@ export default async function MediaDetailsPage({ params, searchParams }: PagePro
   }> = [];
 
   try {
-    const rawCommunityLogs = await db
+    if (process.env.DATABASE_URL) {
+      const rawCommunityLogs = await db
       .select({
         log: userMediaLogs,
         profile: profiles,
@@ -554,6 +572,7 @@ export default async function MediaDetailsPage({ params, searchParams }: PagePro
           }).format(new Date(r.log.updatedAt))
         : "Recent log",
     }));
+    }
   } catch (err) {
     console.error("Community reviews fetch error:", err);
   }

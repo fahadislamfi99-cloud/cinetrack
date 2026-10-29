@@ -26,6 +26,8 @@ async function fetchTmdb<T>(endpoint: string, params: Record<string, string> = {
     headers["Authorization"] = `Bearer ${process.env.TMDB_READ_ACCESS_TOKEN}`;
   } else if (process.env.TMDB_API_KEY) {
     url.searchParams.append("api_key", process.env.TMDB_API_KEY);
+  } else {
+    console.warn(`[TMDb] Warning: TMDB_READ_ACCESS_TOKEN or TMDB_API_KEY is not configured in .env.local. Request to ${endpoint} will fail.`);
   }
 
   const res = await fetch(url.toString(), {

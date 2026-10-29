@@ -148,8 +148,9 @@ export function HeaderSearch({ isMobileOpen, onCloseMobile }: HeaderSearchProps)
   };
 
   const getMediaUrl = (media: NormalizedMedia) => {
-    const idClean = media.id.replace(/^(tmdb:|anilist:)/, "");
-    return `/${media.mediaType}/${idClean}`;
+    const rawId = media.sourceId || media.id;
+    const cleanId = rawId.split(":").pop() || rawId;
+    return `/${media.mediaType}/${cleanId}`;
   };
 
   return (
