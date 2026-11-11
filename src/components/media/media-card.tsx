@@ -430,7 +430,7 @@ export function MediaCard({
       >
         {/* Poster Container (2:3 Aspect Ratio) */}
         <div className="relative w-full aspect-[2/3] overflow-hidden bg-[#161E2C]">
-          <Link href={detailUrl} className="block w-full h-full relative">
+          <Link href={detailUrl} prefetch={false} className="block w-full h-full relative">
             {media.posterPath ? (
               <img
                 src={media.posterPath}
@@ -579,6 +579,7 @@ export function MediaCard({
             {/* Title */}
             <Link
               href={detailUrl}
+              prefetch={false}
               className="font-bold text-[13px] sm:text-[14px] lg:text-[15px] text-[#F5F7FA] group-hover:text-[#3B9EFF] transition-colors line-clamp-2 block leading-snug tracking-tight"
               title={media.title}
             >

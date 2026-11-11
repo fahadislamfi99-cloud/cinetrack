@@ -183,7 +183,7 @@ function BottomNavContent() {
     },
     {
       label: "Library",
-      href: "/library",
+      href: user?.username ? `/${user.username}` : "/library",
       icon: BookmarkCheck,
       isActive:
         pathname === "/library" ||

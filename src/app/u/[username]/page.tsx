@@ -9,7 +9,7 @@ import { LibraryView, LibraryItem } from "@/components/library/library-view";
 import { getCurrentUser } from "@/lib/supabase/server";
 import { db } from "@/lib/db";
 import { userMediaLogs, mediaItems, profiles } from "@/lib/db/schema";
-import { eq, desc } from "drizzle-orm";
+import { eq, desc, sql } from "drizzle-orm";
 import { parseRating } from "@/lib/rating";
 import { demoStats, demoLibraryItems } from "@/lib/demo-library";
 
@@ -51,30 +51,23 @@ export async function generateMetadata({ params }: ProfilePageProps) {
 }
 
 /**
- * Cache public profile and library logs for 60 seconds.
- * Defends database egress against social media traffic spikes and crawlers.
+ * Cache public profile and library logs for 1 hour (invalidated immediately on mutations via tag).
+ * Parallelizes profile and media logs lookup in a single database roundtrip.
  */
 const getProfileLibraryData = (normalizedUsername: string) =>
   unstable_cache(
     async () => {
-      const foundProfiles = await db
-        .select()
-        .from(profiles)
-        .where(eq(profiles.username, normalizedUsername))
-        .limit(1)
-        .catch((err) => {
-          console.error("Profile lookup error:", err);
-          return [];
-        });
-
-      const targetProfile = foundProfiles.length > 0 ? foundProfiles[0] : null;
-      if (!targetProfile) {
-        return { targetProfile: null, allUserLogs: [] };
-      }
-
-      let allUserLogs: any[] = [];
-      try {
-        allUserLogs = await db
+      const [foundProfiles, allUserLogs] = await Promise.all([
+        db
+          .select()
+          .from(profiles)
+          .where(eq(profiles.username, normalizedUsername))
+          .limit(1)
+          .catch((err) => {
+            console.error("Profile lookup error:", err);
+            return [];
+          }),
+        db
           .select({
             logId: userMediaLogs.id,
             logStatus: userMediaLogs.status,
@@ -99,16 +92,28 @@ const getProfileLibraryData = (normalizedUsername: string) =>
           })
           .from(userMediaLogs)
           .innerJoin(mediaItems, eq(userMediaLogs.mediaId, mediaItems.id))
-          .where(eq(userMediaLogs.userId, targetProfile.id))
-          .orderBy(desc(userMediaLogs.updatedAt));
-      } catch (err) {
-        console.error("Error fetching media logs for profile:", err);
+          .where(
+            eq(
+              userMediaLogs.userId,
+              sql`(SELECT ${profiles.id} FROM ${profiles} WHERE ${profiles.username} = ${normalizedUsername} LIMIT 1)`
+            )
+          )
+          .orderBy(desc(userMediaLogs.updatedAt))
+          .catch((err) => {
+            console.error("Error fetching media logs for profile:", err);
+            return [];
+          }),
+      ]);
+
+      const targetProfile = foundProfiles.length > 0 ? foundProfiles[0] : null;
+      if (!targetProfile) {
+        return { targetProfile: null, allUserLogs: [] };
       }
 
       return { targetProfile, allUserLogs };
     },
-    [`profile-library-cache-${normalizedUsername}`],
-    { revalidate: 60, tags: [`profile-${normalizedUsername}`] }
+    [`profile-library-cache-v2-${normalizedUsername}`],
+    { revalidate: 3600, tags: [`profile-${normalizedUsername}`] }
   )();
 
 export default async function ProfilePage({ params, searchParams }: ProfilePageProps) {
@@ -209,7 +214,6 @@ export default async function ProfilePage({ params, searchParams }: ProfilePageP
           mediaType: l.mediaType as "movie" | "series" | "anime",
           title: l.title,
           posterPath: l.posterPath || null,
-          backdropPath: null,
           year: l.releaseDate ? l.releaseDate.substring(0, 4) : undefined,
           rating: l.rating ? Number(l.rating) : 0,
           totalEpisodes: l.totalEpisodes || 1,
@@ -221,8 +225,8 @@ export default async function ProfilePage({ params, searchParams }: ProfilePageP
         userEpisodes: l.episodesWatched,
         currentSeason: l.currentSeason ?? 1,
         currentEpisode: l.currentEpisode ?? 1,
-        reviewText: l.reviewText,
-        containsSpoilers: Boolean(l.containsSpoilers),
+        reviewText: l.reviewText || undefined,
+        containsSpoilers: l.containsSpoilers ? true : undefined,
         updatedAt: l.updatedAt ? new Date(l.updatedAt).toISOString() : undefined,
       })).sort((a, b) => {
         const isWatchingA = a.status === "watching" ? 1 : 0;
@@ -279,7 +283,13 @@ export default async function ProfilePage({ params, searchParams }: ProfilePageP
                 email: currentUser?.email || undefined,
                 avatarUrl: userProp.avatarUrl || undefined,
               }
-            : undefined
+            : currentUser
+            ? {
+                email: currentUser.email,
+                avatarUrl: currentUser.user_metadata?.avatar_url,
+                username: currentUser.user_metadata?.user_name,
+              }
+            : null
         }
       />
 
