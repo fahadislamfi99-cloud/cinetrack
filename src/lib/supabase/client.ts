@@ -171,7 +171,11 @@ export function createClient() {
         if (provider === "google") {
           const res = await authClient.signIn.social({
             provider: "google",
-            callbackURL: options?.redirectTo || (typeof window !== "undefined" ? window.location.origin : "/"),
+            callbackURL:
+              options?.redirectTo ||
+              (typeof window !== "undefined"
+                ? `${window.location.origin}/library`
+                : "/library"),
           });
           if (res?.error) {
             return {

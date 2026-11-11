@@ -1,12 +1,14 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
+import { usePathname } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { getProfileSetupStatus } from "@/actions/profile";
 import { ProfileSetupModal } from "./profile-setup-modal";
 import { usePwaInstall } from "@/components/pwa/pwa-install-provider";
 
 export function ProfileSetupProvider() {
+  const pathname = usePathname();
   const { openInstallModal } = usePwaInstall();
   const [isOpen, setIsOpen] = useState(false);
   const [initialDisplayName, setInitialDisplayName] = useState("");
@@ -28,10 +30,12 @@ export function ProfileSetupProvider() {
   }, []);
 
   useEffect(() => {
-    // 1. Initial check on mount
+    if (pathname === "/login" || pathname.startsWith("/auth/")) return;
     checkStatus();
+  }, [pathname, checkStatus]);
 
-    // 2. Listen to Supabase auth events (e.g. immediate client signin/signup)
+  useEffect(() => {
+    // Listen to Supabase auth events (e.g. immediate client signin/signup)
     const supabase = createClient();
     const {
       data: { subscription },

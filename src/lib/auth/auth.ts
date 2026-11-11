@@ -48,4 +48,9 @@ export const auth = betterAuth({
     process.env.BETTER_AUTH_URL ||
     process.env.NEXT_PUBLIC_SITE_URL ||
     undefined,
+  advanced: {
+    database: {
+      generateId: () => crypto.randomUUID(),
+    },
+  },
 });

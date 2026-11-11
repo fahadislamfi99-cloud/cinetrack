@@ -203,7 +203,15 @@ export function ProfileSetupModal({
           if (onCompleted) {
             onCompleted();
           }
-          router.refresh();
+          if (
+            result.username &&
+            typeof window !== "undefined" &&
+            window.location.pathname === "/library"
+          ) {
+            router.replace(`/${result.username}`);
+          } else {
+            router.refresh();
+          }
         }
       } catch (err: any) {
         setSubmitError(err?.message || "Failed to save profile. Please try again.");

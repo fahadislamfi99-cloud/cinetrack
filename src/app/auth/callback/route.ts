@@ -15,31 +15,37 @@ export async function GET(request: Request) {
   const protocol = request.headers.get("x-forwarded-proto") || (host.includes("localhost") || host.includes("127.0.0.1") || host.includes("192.168.") ? "http" : "https");
   const origin = `${protocol}://${host}`;
 
+  const supabase = await createClient();
+
   if (code) {
-    const supabase = await createClient();
-    const { error, data } = await supabase.auth.exchangeCodeForSession(code);
+    await supabase.auth.exchangeCodeForSession(code);
+  }
 
-    if (!error && data?.user) {
-      try {
-        const [existing] = await db
-          .select({ id: profiles.id })
-          .from(profiles)
-          .where(eq(profiles.id, data.user.id))
-          .limit(1);
+  const {
+    data: { user },
+    error,
+  } = await supabase.auth.getUser();
 
-        if (!existing) {
-          notifyNewUserRegistration({
-            email: data.user.email,
-            method: "Google OAuth",
-          }).catch(() => {});
-        }
-      } catch (err) {
-        console.error("OAuth registration check error:", err);
+  if (!error && user) {
+    try {
+      const [existing] = await db
+        .select({ id: profiles.id })
+        .from(profiles)
+        .where(eq(profiles.id, user.id))
+        .limit(1);
+
+      if (!existing) {
+        notifyNewUserRegistration({
+          email: user.email,
+          method: "Google OAuth",
+        }).catch(() => {});
       }
-
-      // Profile will be configured through Profile Setup popup if not already present
-      return NextResponse.redirect(`${origin}${next}`);
+    } catch (err) {
+      console.error("OAuth registration check error:", err);
     }
+
+    // Profile will be configured through Profile Setup popup if not already present
+    return NextResponse.redirect(`${origin}${next}`);
   }
 
   // Return the user to login with error query param
