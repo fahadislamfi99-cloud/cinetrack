@@ -63,8 +63,6 @@ const getRelatedPlatformPool = unstable_cache(
           totalEpisodes: mediaItems.totalEpisodes,
           runtime: mediaItems.runtime,
           genres: mediaItems.genres,
-          synopsis: mediaItems.synopsis,
-          streamingProviders: mediaItems.streamingProviders,
         })
         .from(mediaItems)
         .orderBy(desc(mediaItems.createdAt))
@@ -89,7 +87,7 @@ const getRelatedPlatformPool = unstable_cache(
     ]);
     return { platformRows, platformLogs };
   },
-  ["platform-related-pool-v1"],
+  ["platform-related-pool-v2"],
   { revalidate: 300, tags: ["discover"] }
 );
 
@@ -216,87 +214,125 @@ export default async function MediaDetailsPage({ params, searchParams }: PagePro
       : `/${fromUsername}`
     : "/";
 
-  let media: NormalizedMedia | null = null;
-  let rawDetails: any = null;
-
-  try {
-    if (type === "movie") {
-      rawDetails = await tmdb.getMovieDetails(cleanId);
-      media = normalizeTmdbMovie(rawDetails);
-    } else if (type === "series" || type === "tv") {
-      rawDetails = await tmdb.getTVDetails(cleanId);
-      media = normalizeTmdbTV(rawDetails);
-    } else if (type === "anime") {
-      let dbItem: any = null;
-      try {
-        const rows = await db
-          .select()
-          .from(mediaItems)
-          .where(
-            or(
-              eq(mediaItems.id, cleanId),
-              eq(mediaItems.id, `tmdb:tv:${cleanId}`),
-              eq(mediaItems.id, `tmdb:movie:${cleanId}`),
-              eq(mediaItems.id, `anilist:${cleanId}`),
-              eq(mediaItems.sourceId, cleanId)
-            )
-          )
-          .limit(1);
-        dbItem = rows[0];
-      } catch (dbErr) {
-        // Safe fallback if database is unavailable or unseeded
-      }
-
-      if (dbItem?.id.startsWith("tmdb:tv:")) {
-        rawDetails = await tmdb.getTVDetails(dbItem.sourceId);
-        media = normalizeTmdbTV(rawDetails);
-      } else if (dbItem?.id.startsWith("tmdb:movie:")) {
-        rawDetails = await tmdb.getMovieDetails(dbItem.sourceId);
-        media = normalizeTmdbMovie(rawDetails);
-      } else if (dbItem?.source === "anilist" || dbItem?.id.startsWith("anilist:")) {
-        rawDetails = await anilist.getAnimeDetails(dbItem.sourceId);
-        media = normalizeAniListAnime(rawDetails);
-      } else {
+  const [detailsResult, currentUser, relatedPool] = await Promise.all([
+    (async () => {
+      let m: NormalizedMedia | null = null;
+      let raw: any = null;
+      if (type === "movie") {
+        raw = await tmdb.getMovieDetails(cleanId);
+        m = normalizeTmdbMovie(raw);
+      } else if (type === "series" || type === "tv") {
+        raw = await tmdb.getTVDetails(cleanId);
+        m = normalizeTmdbTV(raw);
+      } else if (type === "anime") {
+        let dbItem: any = null;
         try {
-          rawDetails = await anilist.getAnimeDetails(cleanId);
-          media = normalizeAniListAnime(rawDetails);
-        } catch {
+          const rows = await db
+            .select()
+            .from(mediaItems)
+            .where(
+              or(
+                eq(mediaItems.id, cleanId),
+                eq(mediaItems.id, `tmdb:tv:${cleanId}`),
+                eq(mediaItems.id, `tmdb:movie:${cleanId}`),
+                eq(mediaItems.id, `anilist:${cleanId}`),
+                eq(mediaItems.sourceId, cleanId)
+              )
+            )
+            .limit(1);
+          dbItem = rows[0];
+        } catch (dbErr) {
+          // Safe fallback if database is unavailable or unseeded
+        }
+
+        if (dbItem?.id.startsWith("tmdb:tv:")) {
+          raw = await tmdb.getTVDetails(dbItem.sourceId);
+          m = normalizeTmdbTV(raw);
+        } else if (dbItem?.id.startsWith("tmdb:movie:")) {
+          raw = await tmdb.getMovieDetails(dbItem.sourceId);
+          m = normalizeTmdbMovie(raw);
+        } else if (dbItem?.source === "anilist" || dbItem?.id.startsWith("anilist:")) {
+          raw = await anilist.getAnimeDetails(dbItem.sourceId);
+          m = normalizeAniListAnime(raw);
+        } else {
           try {
-            rawDetails = await tmdb.getTVDetails(cleanId);
-            media = normalizeTmdbTV(rawDetails);
+            raw = await anilist.getAnimeDetails(cleanId);
+            m = normalizeAniListAnime(raw);
           } catch {
-            rawDetails = await tmdb.getMovieDetails(cleanId);
-            media = normalizeTmdbMovie(rawDetails);
+            try {
+              raw = await tmdb.getTVDetails(cleanId);
+              m = normalizeTmdbTV(raw);
+            } catch {
+              raw = await tmdb.getMovieDetails(cleanId);
+              m = normalizeTmdbMovie(raw);
+            }
           }
         }
       }
-    }
-  } catch (err) {
-    console.error("Error fetching media details:", err);
-    notFound();
-  }
+      return { media: m, rawDetails: raw };
+    })().catch((err) => {
+      console.error("Error fetching media details:", err);
+      return { media: null, rawDetails: null };
+    }),
+    getCurrentUser(),
+    getRelatedPlatformPool().catch((err) => {
+      console.error("Related platform media query error:", err);
+      return { platformRows: [] as any[], platformLogs: [] as any[] };
+    }),
+  ]);
 
+  const { media, rawDetails } = detailsResult;
   if (!media) notFound();
 
   // Extract IMDb ID for unrestricted trailer / video gallery fallback
   const imdbId: string | null =
     rawDetails?.imdb_id || rawDetails?.external_ids?.imdb_id || null;
 
+  // Run IMDb genres, user log, and community review queries in parallel
+  const [imdbGenres, userLog, communityReviewsData] = await Promise.all([
+    imdbId ? getImdbGenres(imdbId).catch(() => [] as string[]) : Promise.resolve([] as string[]),
+    currentUser ? getUserMediaLog(media.id, currentUser.id) : Promise.resolve(null),
+    process.env.DATABASE_URL
+      ? Promise.all([
+          db
+            .select({
+              log: userMediaLogs,
+              profile: profiles,
+            })
+            .from(userMediaLogs)
+            .innerJoin(profiles, eq(userMediaLogs.userId, profiles.id))
+            .where(
+              and(
+                eq(userMediaLogs.mediaId, media.id),
+                isNotNull(userMediaLogs.reviewText)
+              )
+            )
+            .orderBy(desc(userMediaLogs.updatedAt))
+            .limit(6),
+          db
+            .select({ value: count() })
+            .from(userMediaLogs)
+            .where(
+              and(
+                eq(userMediaLogs.mediaId, media.id),
+                isNotNull(userMediaLogs.reviewText)
+              )
+            ),
+        ]).catch((err) => {
+          console.error("Community reviews fetch error:", err);
+          return [[], [{ value: 0 }]] as const;
+        })
+      : Promise.resolve([[], [{ value: 0 }]] as const),
+  ]);
+
   // Enrich genres with IMDb genres if available
-  if (imdbId) {
-    try {
-      const imdbGenres = await getImdbGenres(imdbId);
-      if (imdbGenres.length > 0) {
-        const existingLower = new Set(media.genres.map((g) => g.toLowerCase()));
-        for (const ig of imdbGenres) {
-          if (!existingLower.has(ig.toLowerCase())) {
-            media.genres.push(ig);
-            existingLower.add(ig.toLowerCase());
-          }
-        }
+  if (imdbGenres.length > 0) {
+    const existingLower = new Set(media.genres.map((g) => g.toLowerCase()));
+    for (const ig of imdbGenres) {
+      if (!existingLower.has(ig.toLowerCase())) {
+        media.genres.push(ig);
+        existingLower.add(ig.toLowerCase());
       }
-    } catch (err) {
-      console.error("IMDb genres enrichment error:", err);
     }
   }
 
@@ -354,10 +390,6 @@ export default async function MediaDetailsPage({ params, searchParams }: PagePro
   }
 
   const trailerKey = trailerVideos[0]?.key || null;
-
-  // Fetch user tracking log for this title if authenticated
-  const currentUser = await getCurrentUser();
-  const userLog = currentUser ? await getUserMediaLog(media.id) : null;
 
   // Fetch contextual curator review if user arrived from a specific profile (?from=username)
   let contextualReview: {
@@ -473,7 +505,7 @@ export default async function MediaDetailsPage({ params, searchParams }: PagePro
     }
   }
 
-  // Fetch broader community reviews for lower Reviews section
+  // Process broader community reviews for lower Reviews section
   let totalReviews = 0;
   let communityReviews: Array<{
     id: string;
@@ -492,34 +524,8 @@ export default async function MediaDetailsPage({ params, searchParams }: PagePro
   }> = [];
 
   try {
-    if (process.env.DATABASE_URL) {
-      const rawCommunityLogs = await db
-      .select({
-        log: userMediaLogs,
-        profile: profiles,
-      })
-      .from(userMediaLogs)
-      .innerJoin(profiles, eq(userMediaLogs.userId, profiles.id))
-      .where(
-        and(
-          eq(userMediaLogs.mediaId, media.id),
-          isNotNull(userMediaLogs.reviewText)
-        )
-      )
-      .orderBy(desc(userMediaLogs.updatedAt))
-      .limit(6);
-
-    const [countRow] = await db
-      .select({ value: count() })
-      .from(userMediaLogs)
-      .where(
-        and(
-          eq(userMediaLogs.mediaId, media.id),
-          isNotNull(userMediaLogs.reviewText)
-        )
-      );
-
-    totalReviews = Number(countRow?.value || 0);
+    const [rawCommunityLogs, countRows] = communityReviewsData;
+    totalReviews = Number(countRows?.[0]?.value || 0);
 
     const filteredLogs = rawCommunityLogs.filter(
       (r) => r.log.reviewText && r.log.reviewText.trim().length > 0
@@ -527,7 +533,7 @@ export default async function MediaDetailsPage({ params, searchParams }: PagePro
     const revIds = filteredLogs.map((r) => r.log.id);
 
     const reactionsMap: Record<string, { count: number; hasLiked: boolean }> = {};
-    if (revIds.length > 0) {
+    if (revIds.length > 0 && process.env.DATABASE_URL) {
       const reactions = await db
         .select({
           reviewId: reviewReactions.reviewId,
@@ -572,9 +578,8 @@ export default async function MediaDetailsPage({ params, searchParams }: PagePro
           }).format(new Date(r.log.updatedAt))
         : "Recent log",
     }));
-    }
   } catch (err) {
-    console.error("Community reviews fetch error:", err);
+    console.error("Community reviews process error:", err);
   }
 
   // Streaming Providers
@@ -587,6 +592,18 @@ export default async function MediaDetailsPage({ params, searchParams }: PagePro
     rawProviderResults["BD"] ||
     Object.values(rawProviderResults)[0] ||
     null;
+
+  // Compact streamingProviders before passing media into Client Components to avoid serializing 120+ country objects into HTML
+  const compactProviders: Record<string, any> = {};
+  for (const code of ["US", "GB", "CA", "IN", "BD"]) {
+    if (rawProviderResults[code]) {
+      compactProviders[code] = rawProviderResults[code];
+    }
+  }
+  if (Object.keys(compactProviders).length === 0 && countryData) {
+    compactProviders["US"] = countryData;
+  }
+  media.streamingProviders = compactProviders;
 
   const providers: Array<{ provider_id: number; provider_name: string; logo_path: string }> = [];
   const seenProviderIds = new Set<number>();
@@ -633,7 +650,7 @@ export default async function MediaDetailsPage({ params, searchParams }: PagePro
   }> = [];
 
   try {
-    const { platformRows, platformLogs } = await getRelatedPlatformPool();
+    const { platformRows, platformLogs } = relatedPool;
     const candidateRows = platformRows.filter(
       (cMedia) => cMedia.id !== media.id && cMedia.sourceId !== String(id)
     );
@@ -706,8 +723,8 @@ export default async function MediaDetailsPage({ params, searchParams }: PagePro
             totalEpisodes: cMedia.totalEpisodes || 1,
             runtime: cMedia.runtime || undefined,
             genres: cMedia.genres || [],
-            synopsis: cMedia.synopsis || undefined,
-            streamingProviders: (cMedia.streamingProviders as any) || {},
+            synopsis: undefined,
+            streamingProviders: {},
           } as NormalizedMedia,
         };
       });
@@ -740,7 +757,17 @@ export default async function MediaDetailsPage({ params, searchParams }: PagePro
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
       />
-      <AppHeader />
+      <AppHeader
+        user={
+          currentUser
+            ? {
+                email: currentUser.email,
+                avatarUrl: currentUser.user_metadata?.avatar_url,
+                username: currentUser.user_metadata?.user_name,
+              }
+            : null
+        }
+      />
 
       <main className="flex-1 flex flex-col w-full pt-16 pb-24 md:pb-12">
         {/* Backdrop & Header Hero */}

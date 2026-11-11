@@ -1,3 +1,4 @@
+import { cache } from "react";
 import { headers, cookies } from "next/headers";
 import { auth } from "@/lib/auth/auth";
 import { db } from "@/lib/db";
@@ -36,7 +37,7 @@ export interface AuthenticatedUser {
  * Fast authenticated user lookup that reads Better-Auth session.
  * Skips remote calls if no session cookie exists.
  */
-export async function getCurrentUser(): Promise<AuthenticatedUser | null> {
+export const getCurrentUser = cache(async (): Promise<AuthenticatedUser | null> => {
   try {
     const cookieStore = await cookies();
     const hasAuthCookie = cookieStore
@@ -118,7 +119,7 @@ export async function getCurrentUser(): Promise<AuthenticatedUser | null> {
     console.error("getCurrentUser error:", err);
     return null;
   }
-}
+});
 
 /**
  * Server shim maintaining Supabase auth client signature

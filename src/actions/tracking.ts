@@ -298,17 +298,21 @@ export async function incrementEpisode(mediaId: string, totalEpisodes: number = 
   }
 }
 
-export async function getUserMediaLog(mediaId: string) {
+export async function getUserMediaLog(mediaId: string, userId?: string) {
   try {
-    const user = await getCurrentUser();
-    if (!user) return null;
+    let targetUserId = userId;
+    if (!targetUserId) {
+      const user = await getCurrentUser();
+      if (!user) return null;
+      targetUserId = user.id;
+    }
 
     const [log] = await db
       .select()
       .from(userMediaLogs)
       .where(
         and(
-          eq(userMediaLogs.userId, user.id),
+          eq(userMediaLogs.userId, targetUserId),
           eq(userMediaLogs.mediaId, mediaId)
         )
       )
