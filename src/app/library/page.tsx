@@ -97,18 +97,5 @@ export default async function LibraryPage({ searchParams }: LibraryPageProps) {
     redirect(`/${targetUsername}${suffix}`);
   }
 
-  const rawFallback = user.user_metadata?.user_name || user.email?.split("@")[0];
-  const fallbackUsername = rawFallback ? rawFallback.toLowerCase().replace(/[^a-z0-9_]/g, "") : null;
-  if (fallbackUsername) {
-    try {
-      cookieStore.set("cinetrack_username", fallbackUsername, {
-        path: "/",
-        maxAge: 60 * 60 * 24 * 365,
-        sameSite: "lax",
-      });
-    } catch {}
-    redirect(`/${fallbackUsername}${suffix}`);
-  }
-
-  redirect(`/profile${suffix}`);
+  redirect(`/home${suffix}`);
 }

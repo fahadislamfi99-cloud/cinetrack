@@ -170,12 +170,12 @@ export default async function DiscoverPage({ searchParams }: DiscoverPageProps) 
   const userProp = user
     ? {
         id: user.id,
-        username: userProfile?.username || user.email?.split("@")[0] || "user",
+        username: userProfile?.username || undefined,
         displayName:
           userProfile?.fullName ||
           user.user_metadata?.full_name ||
           userProfile?.username ||
-          user.email?.split("@")[0] ||
+          user.name ||
           "Film Explorer",
         fullName: userProfile?.fullName,
         email: user.email,

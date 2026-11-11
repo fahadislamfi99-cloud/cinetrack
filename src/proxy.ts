@@ -76,34 +76,11 @@ export default async function proxy(request: NextRequest) {
       return redirectResponse;
     }
   } else {
-    // Fast path: authenticated user visiting /library immediately renders their library (zero-hop rewrite)
-    if (pathname === "/library") {
-      const rawCookie = request.cookies.get("cinetrack_username")?.value;
-      const cachedUsername = rawCookie ? decodeURIComponent(rawCookie).trim() : null;
-      if (cachedUsername && !cachedUsername.includes(" ") && /^[a-zA-Z0-9_.-]+$/.test(cachedUsername)) {
-        const targetUrl = request.nextUrl.clone();
-        targetUrl.pathname = `/u/${cachedUsername}`;
-        const requestHeaders = new Headers(request.headers);
-        requestHeaders.set("x-internal-profile-rewrite", "1");
-        const rewriteResponse = NextResponse.rewrite(targetUrl, {
-          request: { headers: requestHeaders },
-        });
-        copyCookies(supabaseResponse, rewriteResponse);
-        return rewriteResponse;
-      }
-    }
-
     // Authenticated users visiting /login get redirected to library only if not explicitly bounced with ?next=
     if (pathname === "/login") {
       const hasNext = request.nextUrl.searchParams.has("next");
       if (!hasNext) {
-        const rawCookie = request.cookies.get("cinetrack_username")?.value;
-        const cachedUsername = rawCookie ? decodeURIComponent(rawCookie).trim() : null;
-        const validUsername =
-          cachedUsername && !cachedUsername.includes(" ") && /^[a-zA-Z0-9_.-]+$/.test(cachedUsername)
-            ? cachedUsername
-            : null;
-        const targetUrl = new URL(validUsername ? `/${validUsername}` : "/library", request.url);
+        const targetUrl = new URL("/library", request.url);
         const redirectResponse = NextResponse.redirect(targetUrl);
         copyCookies(supabaseResponse, redirectResponse);
         return redirectResponse;

@@ -59,7 +59,7 @@ function BottomNavContent() {
     supabase.auth.getSession().then(({ data: { session } }) => {
       if (session?.user) {
         const cached = getCachedUsername();
-        const rawUsername = cached || session.user.user_metadata?.user_name || session.user.email?.split("@")[0];
+        const rawUsername = cached || (session.user.user_metadata?.user_name && session.user.user_metadata.user_name !== "user" ? session.user.user_metadata.user_name : undefined);
         const username = rawUsername ? rawUsername.toLowerCase().replace(/[^a-z0-9_]/g, "") : undefined;
         setUser({ email: session.user.email, username });
       } else {
@@ -70,7 +70,7 @@ function BottomNavContent() {
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       if (session?.user) {
         const cached = getCachedUsername();
-        const rawUsername = cached || session.user.user_metadata?.user_name || session.user.email?.split("@")[0];
+        const rawUsername = cached || (session.user.user_metadata?.user_name && session.user.user_metadata.user_name !== "user" ? session.user.user_metadata.user_name : undefined);
         const username = rawUsername ? rawUsername.toLowerCase().replace(/[^a-z0-9_]/g, "") : undefined;
         setUser({ email: session.user.email, username });
       } else {
@@ -183,7 +183,7 @@ function BottomNavContent() {
     },
     {
       label: "Library",
-      href: user?.username ? `/${user.username}` : "/library",
+      href: "/library",
       icon: BookmarkCheck,
       isActive:
         pathname === "/library" ||

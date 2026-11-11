@@ -1,4 +1,5 @@
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
+import { cookies } from "next/headers";
 import { unstable_cache } from "next/cache";
 import { Lock } from "lucide-react";
 import { AppHeader } from "@/components/navigation/app-header";
@@ -135,6 +136,25 @@ export default async function ProfilePage({ params, searchParams }: ProfilePageP
   const isDemo = !targetProfile && (normalizedUsername === "elenavance" || normalizedUsername === "demo");
 
   if (!targetProfile && !isDemo) {
+    // If authenticated user navigated here via a legacy/poisoned email prefix URL,
+    // self-heal: redirect them to their authentic profile and correct their cookie.
+    if (currentUser?.user_metadata?.user_name) {
+      const emailPrefix = currentUser.email?.split("@")[0]?.toLowerCase().replace(/[^a-z0-9_]/g, "");
+      if (
+        (emailPrefix && normalizedUsername === emailPrefix) ||
+        normalizedUsername === "user"
+      ) {
+        const cookieStore = await cookies();
+        try {
+          cookieStore.set("cinetrack_username", currentUser.user_metadata.user_name, {
+            path: "/",
+            maxAge: 60 * 60 * 24 * 365,
+            sameSite: "lax",
+          });
+        } catch {}
+        redirect(`/${currentUser.user_metadata.user_name}`);
+      }
+    }
     notFound();
   }
 

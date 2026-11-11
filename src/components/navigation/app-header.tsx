@@ -130,11 +130,8 @@ export function AppHeader({ user: initialUser }: AppHeaderProps) {
     supabase.auth.getSession().then(({ data: { session } }) => {
       if (session?.user) {
         const cached = getCachedUsername();
-        const rawUsername = cached || session.user.user_metadata?.user_name || session.user.email?.split("@")[0];
+        const rawUsername = cached || (session.user.user_metadata?.user_name && session.user.user_metadata.user_name !== "user" ? session.user.user_metadata.user_name : undefined);
         const username = rawUsername ? rawUsername.toLowerCase().replace(/[^a-z0-9_]/g, "") : undefined;
-        if (username && typeof document !== "undefined") {
-          document.cookie = `cinetrack_username=${encodeURIComponent(username)}; path=/; max-age=31536000; SameSite=Lax`;
-        }
         setCurrentUser({
           email: session.user.email,
           avatarUrl: session.user.user_metadata?.avatar_url,
@@ -148,11 +145,8 @@ export function AppHeader({ user: initialUser }: AppHeaderProps) {
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       if (session?.user) {
         const cached = getCachedUsername();
-        const rawUsername = cached || session.user.user_metadata?.user_name || session.user.email?.split("@")[0];
+        const rawUsername = cached || (session.user.user_metadata?.user_name && session.user.user_metadata.user_name !== "user" ? session.user.user_metadata.user_name : undefined);
         const username = rawUsername ? rawUsername.toLowerCase().replace(/[^a-z0-9_]/g, "") : undefined;
-        if (username && typeof document !== "undefined") {
-          document.cookie = `cinetrack_username=${encodeURIComponent(username)}; path=/; max-age=31536000; SameSite=Lax`;
-        }
         setCurrentUser({
           email: session.user.email,
           avatarUrl: session.user.user_metadata?.avatar_url,
@@ -248,7 +242,7 @@ export function AppHeader({ user: initialUser }: AppHeaderProps) {
                 )}
               </Link>
               <Link
-                href={currentUser?.username ? `/${currentUser.username}` : "/library"}
+                href="/library"
                 className={`relative py-2 font-semibold whitespace-nowrap transition-colors flex items-center gap-1 group ${
                   isLibraryActive
                     ? "text-[#F5F7FA]"
@@ -539,7 +533,7 @@ export function AppHeader({ user: initialUser }: AppHeaderProps) {
                     {/* Navigation Items */}
                     <div className="p-1 space-y-0.5">
                       <Link
-                        href={currentUser.username ? `/${currentUser.username}` : "/library"}
+                        href="/library"
                         onClick={() => setIsUserMenuOpen(false)}
                         className="flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-medium text-[#A8B0BD] hover:text-[#F5F7FA] hover:bg-white/[0.06] transition-colors cursor-pointer"
                       >
@@ -548,7 +542,7 @@ export function AppHeader({ user: initialUser }: AppHeaderProps) {
                       </Link>
 
                       <Link
-                        href={currentUser.username ? `/${currentUser.username}` : "/library"}
+                        href="/library"
                         onClick={() => setIsUserMenuOpen(false)}
                         className="flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-medium text-[#A8B0BD] hover:text-[#F5F7FA] hover:bg-white/[0.06] transition-colors cursor-pointer"
                       >

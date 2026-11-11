@@ -32,7 +32,7 @@ export default async function SettingsLayout({
         user={{
           email: user.email,
           avatarUrl: user.user_metadata?.avatar_url,
-          username: user.user_metadata?.user_name || user.email?.split("@")[0],
+          username: user.user_metadata?.user_name,
         }}
       />
 

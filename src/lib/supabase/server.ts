@@ -54,7 +54,7 @@ export async function getCurrentUser(): Promise<AuthenticatedUser | null> {
     }
 
     const u = session.user;
-    let username = u.email?.split("@")[0]?.toLowerCase().replace(/[^a-z0-9_]/g, "") || "user";
+    let username: string | undefined = undefined;
     let fullName = u.name || undefined;
     let avatarUrl = u.image || undefined;
 

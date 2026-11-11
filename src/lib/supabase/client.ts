@@ -37,9 +37,7 @@ function mapUser(authUser: any) {
   const username =
     getClientCachedUsername() ||
     sanitizeSlug(authUser.username) ||
-    sanitizeSlug(authUser.email?.split("@")[0]) ||
-    sanitizeSlug(authUser.name) ||
-    "user";
+    undefined;
 
   return {
     id: authUser.id,
